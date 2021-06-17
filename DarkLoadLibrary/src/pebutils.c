@@ -1,8 +1,23 @@
+#include <stddef.h>
+
 #include "pebutils.h"
+
 
 ULONG LdrHashEntry(UNICODE_STRING UniName, BOOL XorHash) {
 	ULONG ulRes = 0;
-	
+
+// NTSYSAPI NTSTATUS RtlHashUnicodeString(
+//   PCUNICODE_STRING String,
+//   BOOLEAN          CaseInSensitive,
+//   ULONG            HashAlgorithm,
+//   PULONG           HashValue
+// );
+
+    HMODULE hNtDll = GetModuleHandleA("ntdll");
+    NTSTATUS (WINAPI *RtlHashUnicodeString)(PCUNICODE_STRING, BOOLEAN, ULONG, PULONG) = 
+        (NTSTATUS (WINAPI*)(PCUNICODE_STRING, BOOLEAN, ULONG, PULONG))GetProcAddress(hNtDll, "RtlHashUnicodeString");
+
+
     RtlHashUnicodeString(
         &UniName,
         TRUE,
@@ -176,6 +191,17 @@ BOOL AddBaseAddressEntry(
 
     } while (TRUE);
 
+// VOID 
+// RtlRbInsertNodeEx (
+//     RTL_RB_TREE *Tree, 
+//     RTL_BALANCED_NODE *Parent, 
+//     BOOLEAN Right, 
+//     RTL_BALANCED_NODE *Node);
+
+    HMODULE hNtDll = GetModuleHandleA("ntdll");
+    NTSTATUS (WINAPI *RtlRbInsertNodeEx)(RTL_RB_TREE *Tree, RTL_BALANCED_NODE *Parent, BOOLEAN Right, RTL_BALANCED_NODE *Node) = 
+        (NTSTATUS (WINAPI*)(RTL_RB_TREE *Tree, RTL_BALANCED_NODE *Parent, BOOLEAN Right, RTL_BALANCED_NODE *Node))GetProcAddress(hNtDll, "RtlRbInsertNodeEx");
+
     RtlRbInsertNodeEx(pModBaseAddrIndex, &pLdrNode->BaseAddressIndexNode, bRight, &pLdrEntry->BaseAddressIndexNode);
 
     return TRUE;
@@ -347,6 +373,15 @@ BOOL LinkModuleToPEB(
         ((PIMAGE_DOS_HEADER)pdModule->pbDllData)->e_lfanew
     );
 
+// NTSYSAPI VOID RtlInitUnicodeString(
+//   PUNICODE_STRING         DestinationString,
+//   __drv_aliasesMem PCWSTR SourceString
+// );
+    HMODULE hNtDll = GetModuleHandleA("ntdll");
+    NTSTATUS (WINAPI *RtlInitUnicodeString)(PCUNICODE_STRING, PCWSTR) = 
+        (NTSTATUS (WINAPI*)(PCUNICODE_STRING, PCWSTR))GetProcAddress(hNtDll, "RtlInitUnicodeString");
+
+
     // convert the names to unicode
     RtlInitUnicodeString(
         &FullDllName, 
@@ -369,6 +404,10 @@ BOOL LinkModuleToPEB(
     {
         return FALSE;
     }
+
+    // HMODULE hNtDll = GetModuleHandleA("ntdll");
+    NTSTATUS (WINAPI *NtQuerySystemTime)(PLARGE_INTEGER) = 
+        (NTSTATUS (WINAPI*)(PLARGE_INTEGER))GetProcAddress(hNtDll, "NtQuerySystemTime");
 
     // start setting the values in the entry
     NtQuerySystemTime(&pLdrEntry->LoadTime);
