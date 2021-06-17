@@ -5,7 +5,7 @@
 
 typedef DWORD (WINAPI * _ThisIsAFunction) (LPCWSTR);
 
-VOID main()
+int main()
 {
 	DARKMODULE DarkModule = DarkLoadLibrary(
 		LOAD_LOCAL_FILE,
@@ -17,7 +17,7 @@ VOID main()
 	if (!DarkModule.bSuccess)
 	{
 		printf("load failed: %S\n", DarkModule.ErrorMsg);
-		return;
+		return 1;
 	}
 
 	_ThisIsAFunction ThisIsAFunction = GetProcAddress(
@@ -28,10 +28,10 @@ VOID main()
 	if (!ThisIsAFunction)
 	{
 		printf("failed to find it\n");
-		return;
+		return 1;
 	}
 
     ThisIsAFunction(L"this is working!!!");
 
-	return;
+	return 0;
 }
