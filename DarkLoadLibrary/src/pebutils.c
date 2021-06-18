@@ -40,171 +40,171 @@ ULONG LdrHashEntry(UNICODE_STRING UniName, BOOL XorHash) {
         &ulRes
     );
 	
-    if (XorHash)
-    {
-        ulRes &= (LDR_HASH_TABLE_ENTRIES - 1);
-    }
+	if (XorHash)
+	{
+		ulRes &= (LDR_HASH_TABLE_ENTRIES - 1);
+	}
 
 	return ulRes;
 }
 
 PLDR_DATA_TABLE_ENTRY2 FindLdrTableEntry(
-    PCWSTR BaseName
+	PCWSTR BaseName
 )
 {
-    PPEB2 pPeb;
-    PLDR_DATA_TABLE_ENTRY2 pCurEntry;
-    PLIST_ENTRY pListHead, pListEntry;
-    
-    pPeb = (PPEB2)READ_MEMLOC(PEB_OFFSET);
+	PPEB2 pPeb;
+	PLDR_DATA_TABLE_ENTRY2 pCurEntry;
+	PLIST_ENTRY pListHead, pListEntry;
+	
+	pPeb = (PPEB2)READ_MEMLOC(PEB_OFFSET);
 
-    if (pPeb == NULL)
-    {
-        return NULL;
-    }
+	if (pPeb == NULL)
+	{
+		return NULL;
+	}
 
-    pListHead = &pPeb->Ldr->InLoadOrderModuleList;
-    pListEntry = pListHead->Flink;
+	pListHead = &pPeb->Ldr->InLoadOrderModuleList;
+	pListEntry = pListHead->Flink;
 
-    do
-    {
+	do
+	{
 
-        pCurEntry = CONTAINING_RECORD(pListEntry, LDR_DATA_TABLE_ENTRY2, InLoadOrderLinks);
-        pListEntry = pListEntry->Flink;
+		pCurEntry = CONTAINING_RECORD(pListEntry, LDR_DATA_TABLE_ENTRY2, InLoadOrderLinks);
+		pListEntry = pListEntry->Flink;
 
-        INT BaseName1 = _wcsnicmp(BaseName, pCurEntry->BaseDllName.Buffer, (pCurEntry->BaseDllName.Length / sizeof(wchar_t)) - 4);
-        INT BaseName2 = _wcsnicmp(BaseName, pCurEntry->BaseDllName.Buffer, pCurEntry->BaseDllName.Length / sizeof(wchar_t));
+		INT BaseName1 = _wcsnicmp(BaseName, pCurEntry->BaseDllName.Buffer, (pCurEntry->BaseDllName.Length / sizeof(wchar_t)) - 4);
+		INT BaseName2 = _wcsnicmp(BaseName, pCurEntry->BaseDllName.Buffer, pCurEntry->BaseDllName.Length / sizeof(wchar_t));
 
-        if (!BaseName1 || !BaseName2)
-        {
-            return pCurEntry;
-        }
+		if (!BaseName1 || !BaseName2)
+		{
+			return pCurEntry;
+		}
 
-    } while (pListEntry != pListHead);
+	} while (pListEntry != pListHead);
 
-    return NULL;
+	return NULL;
 
 }
 
 PRTL_RB_TREE FindModuleBaseAddressIndex()
 {
-    SIZE_T stEnd = NULL;
-    PRTL_BALANCED_NODE pNode = NULL;
-    PRTL_RB_TREE pModBaseAddrIndex = NULL;
+	SIZE_T stEnd = NULL;
+	PRTL_BALANCED_NODE pNode = NULL;
+	PRTL_RB_TREE pModBaseAddrIndex = NULL;
 
-    PLDR_DATA_TABLE_ENTRY2 pLdrEntry = FindLdrTableEntry(L"ntdll.dll");
+	PLDR_DATA_TABLE_ENTRY2 pLdrEntry = FindLdrTableEntry(L"ntdll.dll");
 
-    pNode = &pLdrEntry->BaseAddressIndexNode;
+	pNode = &pLdrEntry->BaseAddressIndexNode;
 
-    do
-    {
-        pNode = (PRTL_BALANCED_NODE)(pNode->ParentValue & (~7));
-    } while (pNode->ParentValue & (~7));
+	do
+	{
+		pNode = (PRTL_BALANCED_NODE)(pNode->ParentValue & (~7));
+	} while (pNode->ParentValue & (~7));
 
-    if (!pNode->Red)
-    {
-        DWORD dwLen = NULL;
-        SIZE_T stBegin = NULL;
+	if (!pNode->Red)
+	{
+		DWORD dwLen = NULL;
+		SIZE_T stBegin = NULL;
 
-        PIMAGE_NT_HEADERS pNtHeaders = RVA(
-            PIMAGE_NT_HEADERS, 
-            pLdrEntry->DllBase, 
-            ((PIMAGE_DOS_HEADER)pLdrEntry->DllBase)->e_lfanew
-        );
+		PIMAGE_NT_HEADERS pNtHeaders = RVA(
+			PIMAGE_NT_HEADERS, 
+			pLdrEntry->DllBase, 
+			((PIMAGE_DOS_HEADER)pLdrEntry->DllBase)->e_lfanew
+		);
 
-        PIMAGE_SECTION_HEADER pSection = IMAGE_FIRST_SECTION(pNtHeaders);
+		PIMAGE_SECTION_HEADER pSection = IMAGE_FIRST_SECTION(pNtHeaders);
 
-        for (INT i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
-        {
-            if (!strcmp(".data", (LPCSTR)pSection->Name))
-            {
-                stBegin = (SIZE_T)pLdrEntry->DllBase + pSection->VirtualAddress;
-                dwLen = pSection->Misc.VirtualSize;
+		for (INT i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
+		{
+			if (!strcmp(".data", (LPCSTR)pSection->Name))
+			{
+				stBegin = (SIZE_T)pLdrEntry->DllBase + pSection->VirtualAddress;
+				dwLen = pSection->Misc.VirtualSize;
 
-                break;
-            }
+				break;
+			}
 
-            ++pSection;
-        }
+			++pSection;
+		}
 
-        for (DWORD i = 0; i < dwLen - sizeof(SIZE_T); ++stBegin, ++i) 
-        {
+		for (DWORD i = 0; i < dwLen - sizeof(SIZE_T); ++stBegin, ++i) 
+		{
 
-            SIZE_T stRet = RtlCompareMemory(
-                (PVOID)stBegin, 
-                (PVOID)&pNode, 
-                sizeof(SIZE_T)
-            );
+			SIZE_T stRet = RtlCompareMemory(
+				(PVOID)stBegin, 
+				(PVOID)&pNode, 
+				sizeof(SIZE_T)
+			);
 
-            if (stRet == sizeof(SIZE_T)) 
-            {
-                stEnd = stBegin;
-                break;
-            }
-        }
+			if (stRet == sizeof(SIZE_T)) 
+			{
+				stEnd = stBegin;
+				break;
+			}
+		}
 
-        if (stEnd == NULL)
-        {
-            return NULL;
-        }
+		if (stEnd == NULL)
+		{
+			return NULL;
+		}
 
-        PRTL_RB_TREE pTree = (PRTL_RB_TREE)stEnd;
-        
-        if (pTree && pTree->Root && pTree->Min)
-        {
-            pModBaseAddrIndex = pTree;
-        }
-    }
-    
-    return pModBaseAddrIndex;
+		PRTL_RB_TREE pTree = (PRTL_RB_TREE)stEnd;
+		
+		if (pTree && pTree->Root && pTree->Min)
+		{
+			pModBaseAddrIndex = pTree;
+		}
+	}
+	
+	return pModBaseAddrIndex;
 }
 
 BOOL AddBaseAddressEntry(
-    PLDR_DATA_TABLE_ENTRY2 pLdrEntry,
-    PVOID lpBaseAddr
+	PLDR_DATA_TABLE_ENTRY2 pLdrEntry,
+	PVOID lpBaseAddr
 )
 {
 
-    PRTL_RB_TREE pModBaseAddrIndex = FindModuleBaseAddressIndex();
+	PRTL_RB_TREE pModBaseAddrIndex = FindModuleBaseAddressIndex();
 
-    if (!pModBaseAddrIndex)
-    {
-        return FALSE;
-    }
+	if (!pModBaseAddrIndex)
+	{
+		return FALSE;
+	}
 
-    BOOL bRight = FALSE;
-    PLDR_DATA_TABLE_ENTRY2 pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pModBaseAddrIndex - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
+	BOOL bRight = FALSE;
+	PLDR_DATA_TABLE_ENTRY2 pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pModBaseAddrIndex - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
 
-    do
-    {
+	do
+	{
 
-        if (lpBaseAddr < pLdrNode->DllBase)
-        {
-            if (!pLdrNode->BaseAddressIndexNode.Left)
-            {
-                break;
-            }
+		if (lpBaseAddr < pLdrNode->DllBase)
+		{
+			if (!pLdrNode->BaseAddressIndexNode.Left)
+			{
+				break;
+			}
 
-            pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pLdrNode->BaseAddressIndexNode.Left - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
-        }
+			pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pLdrNode->BaseAddressIndexNode.Left - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
+		}
 
-        else if (lpBaseAddr > pLdrNode->DllBase)
-        {
-            if (!pLdrNode->BaseAddressIndexNode.Right)
-            {
-                bRight = TRUE;
-                break;
-            }
+		else if (lpBaseAddr > pLdrNode->DllBase)
+		{
+			if (!pLdrNode->BaseAddressIndexNode.Right)
+			{
+				bRight = TRUE;
+				break;
+			}
 
-            pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pLdrNode->BaseAddressIndexNode.Right - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
-        }
+			pLdrNode = (PLDR_DATA_TABLE_ENTRY2)((size_t)pLdrNode->BaseAddressIndexNode.Right - offsetof(LDR_DATA_TABLE_ENTRY2, BaseAddressIndexNode));
+		}
 
-        else
-        {
-            pLdrNode->DdagNode->LoadCount++;
-        }
+		else
+		{
+			pLdrNode->DdagNode->LoadCount++;
+		}
 
-    } while (TRUE);
+	} while (TRUE);
 
     for (SIZE_T i = 0; i < NTDLL_ENTRIES; ++i)
     {
@@ -218,163 +218,166 @@ BOOL AddBaseAddressEntry(
     _RtlRbInsertNodeEx RtlRbInsertNodeEx = (_RtlRbInsertNodeEx) rtTbl.reEntries[2].lpAddr;
     RtlRbInsertNodeEx(pModBaseAddrIndex, &pLdrNode->BaseAddressIndexNode, bRight, &pLdrEntry->BaseAddressIndexNode);
 
-    return TRUE;
+	return TRUE;
 }
 
 PLIST_ENTRY FindHashTable() {
-    PLIST_ENTRY pList = NULL;
-    PLIST_ENTRY pHead = NULL;
-    PLIST_ENTRY pEntry = NULL;
-    PLDR_DATA_TABLE_ENTRY2 pCurrentEntry = NULL;
+	PLIST_ENTRY pList = NULL;
+	PLIST_ENTRY pHead = NULL;
+	PLIST_ENTRY pEntry = NULL;
+	PLDR_DATA_TABLE_ENTRY2 pCurrentEntry = NULL;
 
-    PPEB2 pPeb = (PPEB2)READ_MEMLOC(PEB_OFFSET);
+	PPEB2 pPeb = (PPEB2)READ_MEMLOC(PEB_OFFSET);
 
 	pHead = &pPeb->Ldr->InInitializationOrderModuleList;
-    pEntry = pHead->Flink;
+	pEntry = pHead->Flink;
 
-    do
-    {
-        pCurrentEntry = CONTAINING_RECORD(
-            pEntry,
-            LDR_DATA_TABLE_ENTRY2,
-            InInitializationOrderLinks
-        );
+	do
+	{
+		pCurrentEntry = CONTAINING_RECORD(
+			pEntry,
+			LDR_DATA_TABLE_ENTRY2,
+			InInitializationOrderLinks
+		);
 
-        pEntry = pEntry->Flink;
+		pEntry = pEntry->Flink;
 
-        if (pCurrentEntry->HashLinks.Flink == &pCurrentEntry->HashLinks)
-        {
-            continue;
-        }
+		if (pCurrentEntry->HashLinks.Flink == &pCurrentEntry->HashLinks)
+		{
+			continue;
+		}
 
-        pList = pCurrentEntry->HashLinks.Flink;
+		pList = pCurrentEntry->HashLinks.Flink;
 
-        if (pList->Flink == &pCurrentEntry->HashLinks)
-        {
-            ULONG ulHash = LdrHashEntry(
-                pCurrentEntry->BaseDllName,
-                TRUE
-            );
+		if (pList->Flink == &pCurrentEntry->HashLinks)
+		{
+			ULONG ulHash = LdrHashEntry(
+				pCurrentEntry->BaseDllName,
+				TRUE
+			);
 
-            pList = (PLIST_ENTRY)(
-                (size_t)pCurrentEntry->HashLinks.Flink -
-                ulHash *
-                sizeof(LIST_ENTRY)
-            );
+			pList = (PLIST_ENTRY)(
+				(size_t)pCurrentEntry->HashLinks.Flink -
+				ulHash *
+				sizeof(LIST_ENTRY)
+			);
 
 			break;
 		}
 
-        pList = NULL;
-    } while (pHead != pEntry);
+		pList = NULL;
+	} while (pHead != pEntry);
 
-    return pList;
+	return pList;
 }
 
 VOID InsertTailList(
-    PLIST_ENTRY ListHead,
-    PLIST_ENTRY Entry
+	PLIST_ENTRY ListHead,
+	PLIST_ENTRY Entry
 )
 {
-    PLIST_ENTRY Blink;
+	PLIST_ENTRY Blink;
 
-    Blink = ListHead->Blink;
-    Entry->Flink = ListHead;
-    Entry->Blink = Blink;
-    Blink->Flink = Entry;
-    ListHead->Blink = Entry;
+	Blink = ListHead->Blink;
+	Entry->Flink = ListHead;
+	Entry->Blink = Blink;
+	Blink->Flink = Entry;
+	ListHead->Blink = Entry;
 
-    return;
+	return;
 }
 
 BOOL AddHashTableEntry(
-    PLDR_DATA_TABLE_ENTRY2 pLdrEntry
+	PLDR_DATA_TABLE_ENTRY2 pLdrEntry
 )
 {
-    PPEB pPeb;
-    PPEB_LDR_DATA2 pPebData;
-    PLIST_ENTRY LdrpHashTable;
+	PPEB pPeb;
+	PPEB_LDR_DATA2 pPebData;
+	PLIST_ENTRY LdrpHashTable;
 
-    pPeb = (PPEB)READ_MEMLOC(PEB_OFFSET);
+	pPeb = (PPEB)READ_MEMLOC(PEB_OFFSET);
 
-    RtlInitializeListEntry(
-        &pLdrEntry->HashLinks
-    );
+	RtlInitializeListEntry(
+		&pLdrEntry->HashLinks
+	);
 
-    LdrpHashTable = FindHashTable();
-    if (!LdrpHashTable)
-    {
-        return FALSE;
-    }
+	LdrpHashTable = FindHashTable();
+	if (!LdrpHashTable)
+	{
+		return FALSE;
+	}
 
-    pPebData = (PPEB_LDR_DATA2)pPeb->Ldr;
+	pPebData = (PPEB_LDR_DATA2)pPeb->Ldr;
 
-    // insert into hash table
+	// insert into hash table
 	ULONG ulHash = LdrHashEntry(
-        pLdrEntry->BaseDllName,
-        TRUE
-    );
+		pLdrEntry->BaseDllName,
+		TRUE
+	);
 	
-    InsertTailList(
-        &LdrpHashTable[ulHash],
-        &pLdrEntry->HashLinks
-    );
+	InsertTailList(
+		&LdrpHashTable[ulHash],
+		&pLdrEntry->HashLinks
+	);
 
 	// insert into other lists
 	InsertTailList(
-        &pPebData->InLoadOrderModuleList,
-        &pLdrEntry->InLoadOrderLinks
-    );
+		&pPebData->InLoadOrderModuleList,
+		&pLdrEntry->InLoadOrderLinks
+	);
 
 	InsertTailList(
-        &pPebData->InMemoryOrderModuleList,
-        &pLdrEntry->InMemoryOrderLinks
-    );
+		&pPebData->InMemoryOrderModuleList,
+		&pLdrEntry->InMemoryOrderLinks
+	);
 
 	InsertTailList(
-        &pPebData->InInitializationOrderModuleList,
-        &pLdrEntry->InInitializationOrderLinks
-    );
+		&pPebData->InInitializationOrderModuleList,
+		&pLdrEntry->InInitializationOrderLinks
+	);
 
-    return TRUE;
+	return TRUE;
 }
 
 HMODULE IsModulePresent(
-    LPCWSTR lpwName
+	LPCWSTR lpwName
 )
 {
-    PPEB pPeb;
-    PUCHAR ucModPtrOff;
-    PLDR_DATA_TABLE_ENTRY2 pLdrTbl;
-    
-    pPeb = (PPEB)READ_MEMLOC(PEB_OFFSET);
+	if (lpwName == NULL)
+		return (HMODULE)NULL;
 
-    PLIST_ENTRY pModListEnd = &pPeb->Ldr->InMemoryOrderModuleList;
-    PLIST_ENTRY pModList = pModListEnd->Flink;
+	PPEB pPeb;
+	PUCHAR ucModPtrOff;
+	PLDR_DATA_TABLE_ENTRY2 pLdrTbl;
+	
+	pPeb = (PPEB)READ_MEMLOC(PEB_OFFSET);
 
-    do
-    {
-        ucModPtrOff = (PUCHAR)pModList - (sizeof(LIST_ENTRY));
+	PLIST_ENTRY pModListEnd = &pPeb->Ldr->InMemoryOrderModuleList;
+	PLIST_ENTRY pModList = pModListEnd->Flink;
 
-        pLdrTbl = (PLDR_DATA_TABLE_ENTRY2)ucModPtrOff;
+	do
+	{
+		ucModPtrOff = (PUCHAR)pModList - (sizeof(LIST_ENTRY));
 
-        if (!_wcsicmp(
-            pLdrTbl->BaseDllName.Buffer, 
-            (PWSTR)lpwName)
-        )
-        {
-            // already loaded, so return the base address
-            return (ULONG_PTR)pLdrTbl->DllBase;
-        }
+		pLdrTbl = (PLDR_DATA_TABLE_ENTRY2)ucModPtrOff;
 
-        pModList = pModList->Flink;
-    } while (pModList != pModListEnd);
+		if (!_wcsicmp(
+			pLdrTbl->BaseDllName.Buffer, 
+			(PWSTR)lpwName)
+		)
+		{
+			// already loaded, so return the base address
+			return (ULONG_PTR)pLdrTbl->DllBase;
+		}
 
-    return (HMODULE)NULL;
+		pModList = pModList->Flink;
+	} while (pModList != pModListEnd);
+
+	return (HMODULE)NULL;
 }
 
 BOOL LinkModuleToPEB(
-    PDARKMODULE pdModule
+	PDARKMODULE pdModule
 )
 {
 
