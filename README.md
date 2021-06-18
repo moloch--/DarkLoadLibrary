@@ -2,6 +2,9 @@
 
 `LoadLibrary` for offensive operations.
 
+__NOTE:__ This fork has been modified to build with llvm-obfuscator, see `make.bat`.
+
+
 ### How does is work?
 
 https://www.mdsec.co.uk/2021/06/bypassing-image-load-kernel-callbacks/
