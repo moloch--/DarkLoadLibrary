@@ -1,6 +1,7 @@
 #include "ldrutils.h"
 #if _M_X64
 #include "syscalls.h"
+#include "syscallsstubs.c"
 #endif
 
 BOOL IsValidPE(
