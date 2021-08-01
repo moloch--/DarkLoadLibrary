@@ -9,4 +9,6 @@ clang.exe -static -std=c11 %OBF_FLAGS% -o dark.exe -I .\include\ -v ^
     src\resolve.c ^
     src\ldrutils.c ^
     src\pebutils.c ^
+    src\syscalls.c ^
+    src\syscallsstubs.c ^
     src\main.c
