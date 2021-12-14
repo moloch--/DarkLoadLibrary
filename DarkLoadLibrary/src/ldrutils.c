@@ -1,7 +1,23 @@
 #include "ldrutils.h"
+#include "resolve.h"
 #if _M_X64
 #include "syscalls.h"
 #endif
+
+
+typedef NTSYSCALLAPI NTSTATUS (*_NtAllocateVirtualMemory)(HANDLE ProcessHandle, PVOID *BaseAddress, ULONG_PTR ZeroBits, PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect);
+typedef NTSTATUS (*_NtProtectVirtualMemory)(HANDLE ProcessHandle, PVOID *BaseAddress, PULONG RegionSize, ULONG NewProtect, PULONG OldProtect);
+
+/* ntdll.dll Function Hashes */
+const unsigned int LDR_NTDLL_ENTRIES = 2;
+RESOLVE_TABLE ldrRtTbl = {
+    {
+        // ntdll.dll
+        {0xec9f9e51, "", NULL}, // 0. NtAllocateVirtualMemory -> 0xec9f9e51
+        {0xfbb60d7f, "", NULL}, // 1. NtProtectVirtualMemory -> 0xfbb60d7f
+    }
+};
+
 
 BOOL IsValidPE(
     PBYTE pbData
@@ -40,8 +56,19 @@ BOOL MapSections(
         ((PIMAGE_DOS_HEADER)pdModule->pbDllData)->e_lfanew
     );
 
-    // try get prefered address
+    // try get preferred address
 #if _M_X64
+
+    for (SIZE_T i = 0; i < LDR_NTDLL_ENTRIES; ++i)
+    {
+        ldrRtTbl.reEntries[i].cszwMod = "ntdll.dll"; // TODO: Obfuscate
+    }
+    if (!resolve_init(&ldrRtTbl, LDR_NTDLL_ENTRIES))
+    {
+        return FALSE; // Uh oh
+    }
+    _NtAllocateVirtualMemory NtAllocateVirtualMemory = (_NtAllocateVirtualMemory) ldrRtTbl.reEntries[0].lpAddr;
+
     pdModule->ModuleBase = pNtHeaders->OptionalHeader.ImageBase;
     SIZE_T RegionSize = pNtHeaders->OptionalHeader.SizeOfImage;
     NTSTATUS status = NtAllocateVirtualMemory(
@@ -394,6 +421,17 @@ BOOL BeginExecution(
                 dwProtect |= PAGE_NOCACHE;
             }
 #if _M_X64
+
+            for (SIZE_T i = 0; i < LDR_NTDLL_ENTRIES; ++i)
+            {
+                ldrRtTbl.reEntries[i].cszwMod = "ntdll.dll"; // TODO: Obfuscate
+            }
+            if (!resolve_init(&ldrRtTbl, LDR_NTDLL_ENTRIES))
+            {
+                return FALSE; // Uh oh
+            }
+            _NtProtectVirtualMemory NtProtectVirtualMemory = (_NtProtectVirtualMemory) ldrRtTbl.reEntries[1].lpAddr;
+
             PVOID BaseAddress = (PVOID)(pdModule->ModuleBase + pSectionHeader->VirtualAddress);
             SIZE_T RegionSize = pSectionHeader->SizeOfRawData;
             NTSTATUS status = NtProtectVirtualMemory(

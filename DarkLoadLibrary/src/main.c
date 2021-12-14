@@ -13,7 +13,7 @@ int main()
 
 	PDARKMODULE DarkModule = DarkLoadLibrary(
 		LOAD_LOCAL_FILE,
-		L".\\amsi.dll",
+		L".\\TestDLL.dll",
 		NULL,
 		0,
 		NULL
@@ -24,7 +24,7 @@ int main()
 		printf("load failed: %S\n", DarkModule->ErrorMsg);
 		pHeapFree(pGetProcessHeap(), 0, DarkModule->ErrorMsg);
 		pHeapFree(pGetProcessHeap(), 0, DarkModule);
-		return;
+		return 2;
 	}
 
 	_ThisIsAFunction ThisIsAFunction = (_ThisIsAFunction)GetFunctionAddress(
